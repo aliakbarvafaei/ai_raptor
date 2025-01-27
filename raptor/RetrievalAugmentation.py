@@ -8,6 +8,8 @@ from .SummarizationModels import BaseSummarizationModel
 from .tree_builder import TreeBuilder, TreeBuilderConfig
 from .tree_retriever import TreeRetriever, TreeRetrieverConfig
 from .tree_structures import Node, Tree
+from .visualise import visualize_tree_structure
+
 
 # Define a dictionary to map supported tree builders to their respective configs
 supported_tree_builders = {"cluster": (ClusterTreeBuilder, ClusterTreeConfig)}
@@ -201,6 +203,16 @@ class RetrievalAugmentation:
             f"Successfully initialized RetrievalAugmentation with Config {config.log_config()}"
         )
 
+    def add_to_existing(self, docs):
+        """
+        Adds documents to the existing tree and creates a TreeRetriever instance.
+        Args:
+            docs (str): The input text to add to the tree.
+        """
+        new_tree = self.tree_builder.build_from_text(text=docs)
+        self.tree.hang_tree(new_tree)
+        self.retriever = TreeRetriever(self.tree_retriever_config, self.tree)
+
     def add_documents(self, docs):
         """
         Adds documents to the tree and creates a TreeRetriever instance.
@@ -213,7 +225,7 @@ class RetrievalAugmentation:
                 "Warning: Overwriting existing tree. Did you mean to call 'add_to_existing' instead? (y/n): "
             )
             if user_input.lower() == "y":
-                # self.add_to_existing(docs)
+                self.add_to_existing(docs)
                 return
 
         self.tree = self.tree_builder.build_from_text(text=docs)
@@ -298,6 +310,18 @@ class RetrievalAugmentation:
 
         return answer
 
+    def visualize_tree(self):
+        ## Now see the tree build in action
+        TREE = self.tree
+        ROOT_NODES = TREE.root_nodes.values()
+        TOP_ROOT_NODE = Node(
+            "TOP_ROOT_NODE",
+            index=-1,
+            children=list(map(lambda x: x.index, ROOT_NODES)),
+            embeddings=[],
+        )
+        visualize_tree_structure(TOP_ROOT_NODE, TREE)
+    
     def save(self, path):
         if self.tree is None:
             raise ValueError("There is no tree to save.")

@@ -17,6 +17,32 @@ class BaseQAModel(ABC):
     def answer_question(self, context, question):
         pass
 
+import requests
+import json
+from typing import Dict, Any
+
+class OllamaBaseModel:
+    def __init__(self, model_name: str, ollama_url: str = "http://localhost:11434/api"):
+        """
+        :param model_name: Name of the local Ollama model.
+        :param ollama_url: URL to Ollama's local API.
+        """
+        self.model_name = model_name
+        self.ollama_url = ollama_url
+
+    def _post_request(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Sends a POST request to the Ollama API and returns the response."""
+        url = f"{self.ollama_url}/{endpoint}"
+        try:
+            response = requests.post(
+                url, headers={"Content-Type": "application/json"}, data=json.dumps(payload)
+            )
+            response.raise_for_status()
+            
+            return response
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Request to {url} failed: {str(e)}")
+
 
 class GPT3QAModel(BaseQAModel):
     def __init__(self, model="text-davinci-003"):
@@ -183,3 +209,78 @@ class UnifiedQAModel(BaseQAModel):
         input_string = question + " \\n " + context
         output = self.run_model(input_string)
         return output[0]
+    
+
+
+class OllamaQAModel(BaseQAModel):
+
+    def __init__(self, model="dolphin-phi"):
+
+        """
+
+        Initializes the Ollama model with the specified model version.
+
+        Args:
+
+            model (str, optional): The Ollama model version to use. Defaults to "dolphin-phi".
+
+        """
+
+        self.model = model
+
+
+
+
+    def answer_question(self, context, question):
+
+        """
+
+        Generates an answer to the given question using the Ollama model.
+
+        Args:
+
+            context (str): The context or background information for the question.
+
+            question (str): The question to generate an answer for.
+
+        Returns:
+
+            str: The generated answer.
+
+        """
+
+        import ollama
+
+        response = ollama.chat(model=self.model, messages=[
+
+                {"role": "system", "content": "You are Question Answering Portal"},
+
+                {
+
+                    "role": "user",
+
+                    "content": f"Given Context: {context} Give the best full answer amongst the option to question {question}",
+
+                },
+
+            ])
+
+        return response['message']['content']
+    
+
+class OllamaQAModelV2(BaseQAModel, OllamaBaseModel):
+    def answer_question(self, context: str, question: str) -> str:
+        """Answer the question based on the given context using the local Ollama model."""
+        payload = {
+            "model": self.model_name,
+            "prompt": f"Given the context: {context}, answer the question: {question}",
+            "max_tokens": 256,
+        }
+        result = self._post_request("generate", payload)
+        # Parse the raw responses into a list of JSON objects
+        responses = [json.loads(line.strip()) for line in result.text.strip().split("\n")]
+
+        # Combine the `response` values
+        combined_response = "".join([resp["response"] for resp in responses])
+
+        return combined_response
