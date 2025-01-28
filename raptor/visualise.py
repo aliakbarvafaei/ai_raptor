@@ -40,15 +40,29 @@ def create_visualization_figure(
     Creates a Plotly figure for visualizing nodes and edges.
     """
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=edge_x_coords,
-            y=edge_y_coords,
-            mode="lines",
-            line=dict(color="rgb(210,210,210)", width=1),
-            hoverinfo="none",
-        )
-    )
+    
+    # Add arrows for edges
+    for i in range(0, len(edge_x_coords) - 1, 3):
+        x_start, x_end = edge_x_coords[i], edge_x_coords[i + 1]
+        y_start, y_end = edge_y_coords[i], edge_y_coords[i + 1]
+        if x_start is not None and x_end is not None:  # Avoid None segments
+            fig.add_annotation(
+                x=x_end,
+                y=y_end,
+                ax=x_start,
+                ay=y_start,
+                xref="x",
+                yref="y",
+                axref="x",
+                ayref="y",
+                showarrow=True,
+                arrowhead=2,  # Arrow style
+                arrowsize=1.5,  # Size of the arrowhead
+                arrowwidth=1,  # Arrow line width
+                arrowcolor="rgb(210,210,210)",  # Color of the arrow
+            )
+
+    # Add nodes
     fig.add_trace(
         go.Scatter(
             x=node_x_coords,
@@ -112,24 +126,25 @@ def visualize_tree_structure(start_node: Node, tree: Tree):
     graph = Graph()
     build_graph_from_tree(graph, start_node, tree)
 
-    layout = graph.layout("rt")
+    # Generate layout using Reingold-Tilford (hierarchical tree layout)
+    layout = graph.layout_reingold_tilford(root=[0])
     positions = {i: layout[i] for i in range(graph.vcount())}
+
+    # Flip y-coordinates to align with traditional tree layout
     heights = [layout[i][1] for i in range(graph.vcount())]
     max_height = max(heights)
+    node_x_coords = [positions[i][0] for i in range(len(positions))]
+    node_y_coords = [2 * max_height - positions[i][1] for i in range(len(positions))]
 
-    edges = EdgeSeq(graph)
-    edge_tuples = [edge.tuple for edge in graph.es]
-    num_positions = len(positions)
-    node_x_coords = [positions[i][0] for i in range(num_positions)]
-    node_y_coords = [2 * max_height - positions[i][1] for i in range(num_positions)]
+    # Extract edge coordinates
     edge_x_coords = []
     edge_y_coords = []
-    for edge in edge_tuples:
-        edge_x_coords.extend([positions[edge[0]][0], positions[edge[1]][0], None])
+    for edge in graph.es:
+        edge_x_coords.extend([positions[edge.source][0], positions[edge.target][0], None])
         edge_y_coords.extend(
             [
-                2 * max_height - positions[edge[0]][1],
-                2 * max_height - positions[edge[1]][1],
+                2 * max_height - positions[edge.source][1],
+                2 * max_height - positions[edge.target][1],
                 None,
             ]
         )
