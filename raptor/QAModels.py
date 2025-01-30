@@ -268,6 +268,70 @@ class OllamaQAModel(BaseQAModel):
         return response['message']['content']
     
 
+import os
+from tenacity import retry, wait_random_exponential, stop_after_attempt
+
+class DeepSeekQAModel(BaseQAModel):
+    def __init__(self, model="deepseek-chat"):
+        """
+        Initializes the DeepSeek model with the specified model version.
+
+        Args:
+            model (str, optional): The DeepSeek model version to use for generating answers. Defaults to "deepseek-model-v1".
+        """
+        self.model = model
+        self.client = OpenAI(api_key=os.environ["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
+
+    @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
+    def _attempt_answer_question(
+        self, context, question, max_tokens=150, stop_sequence=None
+    ):
+        """
+        Generates an answer to the given question based on the provided context using the DeepSeek model.
+
+        Args:
+            context (str): The context to base the answer on.
+            question (str): The question to answer.
+            max_tokens (int, optional): The maximum number of tokens in the generated answer. Defaults to 150.
+            stop_sequence (str, optional): The sequence at which to stop generation. Defaults to None.
+
+        Returns:
+            str: The generated answer.
+        """
+        response = self.client.completions.create(
+                prompt=f"using the folloing information {context}. Answer the following question in less than 5-7 words, if possible: {question}",
+                temperature=0,
+                max_tokens=max_tokens,
+                top_p=1,
+                frequency_penalty=0,
+                presence_penalty=0,
+                stop=stop_sequence,
+                model=self.model,
+            )
+        return response.choices[0].text.strip()
+
+    @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
+    def answer_question(self, context, question, max_tokens=150, stop_sequence=None):
+        """
+        Attempts to answer the question using the DeepSeek model with retry logic.
+
+        Args:
+            context (str): The context to base the answer on.
+            question (str): The question to answer.
+            max_tokens (int, optional): The maximum number of tokens in the generated answer. Defaults to 150.
+            stop_sequence (str, optional): The sequence at which to stop generation. Defaults to None.
+
+        Returns:
+            str: The generated answer or an error message if an exception occurs.
+        """
+        try:
+            return self._attempt_answer_question(
+                context, question, max_tokens=max_tokens, stop_sequence=stop_sequence
+            )
+        except Exception as e:
+            print(e)
+            return str(e)
+        
 class OllamaQAModelV2(BaseQAModel, OllamaBaseModel):
     def answer_question(self, context: str, question: str) -> str:
         """Answer the question based on the given context using the local Ollama model."""
