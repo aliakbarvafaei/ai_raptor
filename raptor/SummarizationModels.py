@@ -1,8 +1,9 @@
 import logging
 import os
 from abc import ABC, abstractmethod
+import time
 
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
@@ -47,27 +48,29 @@ class GPT3TurboSummarizationModel(BaseSummarizationModel):
 
     @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
     def summarize(self, context, max_tokens=500, stop_sequence=None):
+        for attempt in range(10):
+            try:
+                client = OpenAI()
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {
+                            "role": "user",
+                            "content": f"Write a summary of the following, including as many key details as possible: {context}",
+                        },
+                    ],
+                    max_tokens=max_tokens,
+                )
+                return response.choices[0].message.content
 
-        try:
-            client = OpenAI()
-
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {
-                        "role": "user",
-                        "content": f"Write a summary of the following, including as many key details as possible: {context}:",
-                    },
-                ],
-                max_tokens=max_tokens,
-            )
-
-            return response.choices[0].message.content
-
-        except Exception as e:
-            print(e)
-            return e
+            except RateLimitError as e:
+                wait_time = 2 ** attempt
+                print(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            except Exception as e:
+                return f"Unexpected error: {str(e)}"
+        return "Failed to retrieve the summary after multiple attempts."
 
 
 class DeepSeekSummarizationModel(BaseSummarizationModel):

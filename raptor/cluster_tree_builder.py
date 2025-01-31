@@ -76,6 +76,9 @@ class ClusterTreeBuilder(TreeBuilder):
             logging.info(
                 f"Node Texts Length: {len(self.tokenizer.encode(node_texts))}, Summarized Text Length: {len(self.tokenizer.encode(summarized_text))}"
             )
+            logging.info(
+                f"Summarized Text: {summarized_text}"
+            )
 
             __, new_parent_node = self.create_node(
                 next_node_index, summarized_text, {node.index for node in cluster}
