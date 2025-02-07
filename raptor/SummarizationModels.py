@@ -42,16 +42,17 @@ class OllamaBaseModel:
 
 
 class GPT3TurboSummarizationModel(BaseSummarizationModel):
-    def __init__(self, model="gpt-3.5-turbo"):
+    def __init__(self, model="gpt-4o-mini"):
 
         self.model = model
+        # self.client = OpenAI()
+        self.client = OpenAI(base_url="https://models.inference.ai.azure.com", api_key=os.environ["GITHUB_API_KEY"])
 
     @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
     def summarize(self, context, max_tokens=500, stop_sequence=None):
         for attempt in range(10):
             try:
-                client = OpenAI()
-                response = client.chat.completions.create(
+                response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant."},

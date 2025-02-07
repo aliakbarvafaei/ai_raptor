@@ -87,7 +87,7 @@ class GPT3QAModel(BaseQAModel):
 
 
 class GPT3TurboQAModel(BaseQAModel):
-    def __init__(self, model="gpt-3.5-turbo"):
+    def __init__(self, model="gpt-4o-mini"):
         """
         Initializes the GPT-3 model with the specified model version.
 
@@ -95,7 +95,9 @@ class GPT3TurboQAModel(BaseQAModel):
             model (str, optional): The GPT-3 model version to use for generating summaries. Defaults to "text-davinci-003".
         """
         self.model = model
-        self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        # self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+        self.client = OpenAI(base_url="https://models.inference.ai.azure.com", api_key=os.environ["GITHUB_API_KEY"])
 
     @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
     def _attempt_answer_question(
